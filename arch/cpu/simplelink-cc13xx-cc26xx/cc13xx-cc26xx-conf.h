@@ -261,7 +261,7 @@
  *         is defined as 1. Must be a byte array of size 8.
  */
 #ifndef IEEE_ADDR_CONF_ADDRESS
-#define IEEE_ADDR_CONF_ADDRESS              { 0x00, 0x12, 0x4B, 0x00, 0x89, 0xAB, 0xCD, 0xEF }
+#define IEEE_ADDR_CONF_ADDRESS              { 0x00, 0x12 }
 #endif
 /** @} */
 /*---------------------------------------------------------------------------*/

@@ -46,6 +46,7 @@
 */
 
 #include "dev/radio.h"
+#include "dev/leds.h"
 #include "contiki.h"
 #include "net/netstack.h"
 #include "net/packetbuf.h"
@@ -53,6 +54,13 @@
 #include "net/mac/framer/framer-802154.h"
 #include "net/mac/tsch/tsch.h"
 #include "sys/critical.h"
+
+#include <ti/drivers/rf/RF.h>
+#include <ti/drivers/PIN.h>
+#include <ti/drivers/pin/PINCC26XX.h>
+#include <ti/devices/DeviceFamily.h>
+#include DeviceFamily_constructPath(inc/hw_rfc_rat.h)
+#include DeviceFamily_constructPath(inc/hw_rfc_dbell.h)
 
 #include "sys/log.h"
 /* TSCH debug macros, i.e. to set LEDs or GPIOs on various TSCH
@@ -501,6 +509,23 @@ tsch_radio_off(enum tsch_radio_state_off_cmd command)
   }
 }
 /*---------------------------------------------------------------------------*/
+// const uint8_t ratgpo0_pin = IOID_21;
+// const uint8_t tx_rat_capture = IOID_22;
+
+// static PIN_Config config_table[] = {
+
+//     // for measuring tx time
+//     ratgpo0_pin    | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MAX,
+//     tx_rat_capture  | PIN_INPUT_EN | PIN_NOPULL,
+
+//     PIN_TERMINATE,
+// };
+// static PIN_State state;
+// PIN_Handle handle;
+
+// bool prop_mode_start_rat_capture(uint32_t *timestamp);
+// uint32_t rat_timestamp;
+
 static
 PT_THREAD(tsch_tx_slot(struct pt *pt, struct rtimer *t))
 {
@@ -557,7 +582,7 @@ PT_THREAD(tsch_tx_slot(struct pt *pt, struct rtimer *t))
       packet = queuebuf_dataptr(current_packet->qb);
       packet_len = queuebuf_datalen(current_packet->qb);
       /* if is this a broadcast packet, don't wait for ack */
-      do_wait_for_ack = !current_neighbor->is_broadcast;
+      do_wait_for_ack = 0; //!current_neighbor->is_broadcast;
       /* Unicast. More packets in queue for the neighbor? */
       burst_link_requested = 0;
       if(do_wait_for_ack
@@ -1091,9 +1116,13 @@ PT_THREAD(tsch_slot_operation(struct rtimer *t, void *ptr))
           /* Reset burst_link_scheduled flag. Will be set again if burst continue. */
           burst_link_scheduled = 0;
         } else {
-          /* Hop channel */
-          tsch_current_channel_offset = tsch_get_channel_offset(current_link, current_packet);
-          tsch_current_channel = tsch_calculate_channel(&tsch_current_asn, tsch_current_channel_offset);
+          if (current_link->link_type == LINK_TYPE_ADVERTISING) {
+            tsch_current_channel = 20;
+          } else {
+            /* Hop channel */
+            tsch_current_channel_offset = tsch_get_channel_offset(current_link, current_packet);
+            tsch_current_channel = tsch_calculate_channel(&tsch_current_asn, tsch_current_channel_offset);
+          }
         }
         NETSTACK_RADIO.set_value(RADIO_PARAM_CHANNEL, tsch_current_channel);
         /* Turn the radio on already here if configured so; necessary for radios with slow startup */
@@ -1106,10 +1135,12 @@ PT_THREAD(tsch_slot_operation(struct rtimer *t, void *ptr))
            * 2. update_backoff_state(current_neighbor)
            * 3. post tx callback
            **/
+          leds_single_toggle(0);
           static struct pt slot_tx_pt;
           PT_SPAWN(&slot_operation_pt, &slot_tx_pt, tsch_tx_slot(&slot_tx_pt, t));
         } else {
           /* Listen */
+          leds_single_toggle(0);
           static struct pt slot_rx_pt;
           PT_SPAWN(&slot_operation_pt, &slot_rx_pt, tsch_rx_slot(&slot_rx_pt, t));
         }

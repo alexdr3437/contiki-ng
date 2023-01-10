@@ -47,6 +47,7 @@
 
 #include "contiki.h"
 #include "dev/radio.h"
+#include "dev/leds.h"
 #include "net/netstack.h"
 #include "net/packetbuf.h"
 #include "net/queuebuf.h"
@@ -57,6 +58,7 @@
 #include "net/mac/mac-sequence.h"
 #include "lib/random.h"
 #include "net/routing/routing.h"
+#include "sys/node-id.h"
 #include <inttypes.h>
 
 #if TSCH_WITH_SIXTOP
@@ -109,6 +111,8 @@ const linkaddr_t tsch_eb_address = { { 0, 0, 0, 0, 0, 0, 0, 0 } };
 const linkaddr_t tsch_broadcast_address = { { 0xff, 0xff } };
 const linkaddr_t tsch_eb_address = { { 0, 0 } };
 #endif /* LINKADDR_SIZE == 8 */
+
+static struct tsch_slotframe *sf_beacon;
 
 /* Is TSCH started? */
 int tsch_is_started = 0;
@@ -199,6 +203,22 @@ void
 tsch_set_eb_period(uint32_t period)
 {
   tsch_current_eb_period = MIN(period, TSCH_MAX_EB_PERIOD);
+}
+/*---------------------------------------------------------------------------*/
+static void
+tsch_eb_scheduler_init(void)
+{
+	tsch_schedule_remove_all_slotframes();
+
+	sf_beacon		  = tsch_schedule_add_slotframe(0, TSCH_SCHEDULE_DEFAULT_LENGTH);
+    tsch_schedule_add_link(sf_beacon, LINK_OPTION_TX | LINK_OPTION_RX, LINK_TYPE_ADVERTISING, &tsch_eb_address, 0, 0, 1);
+}
+/*---------------------------------------------------------------------------*/
+static void
+tsch_eb_scheduler_add_link(uint8_t n_hops, uint8_t sender_id) 
+{
+    tsch_schedule_add_link(sf_beacon, LINK_OPTION_RX, LINK_TYPE_ADVERTISING, &tsch_eb_address, n_hops, sender_id, 1);
+    tsch_schedule_add_link(sf_beacon, LINK_OPTION_TX, LINK_TYPE_ADVERTISING, &tsch_eb_address, n_hops + 1, sender_id, 1);
 }
 /*---------------------------------------------------------------------------*/
 static void
@@ -386,6 +406,52 @@ tsch_keepalive_process_pending(void)
   }
 }
 /*---------------------------------------------------------------------------*/
+#if TSCH_JOIN_CHANNEL_FROM_ID
+static uint8_t
+tsch_get_join_channel(void) {
+    return TSCH_JOIN_HOPPING_SEQUENCE[node_id % sizeof(TSCH_JOIN_HOPPING_SEQUENCE)];
+}
+#endif
+/*---------------------------------------------------------------------------*/
+#define TSCH_CALLBACK_JOINING_NETWORK tsch_send_eb_after_association 
+void tsch_send_eb_after_association(void) {
+  uint8_t hdr_len = 0;
+  uint8_t tsch_sync_ie_offset;
+  /* Prepare the EB packet and schedule it to be sent */
+  if(tsch_packet_create_eb(&hdr_len, &tsch_sync_ie_offset) > 0) {
+    struct tsch_packet *p;
+    /* Enqueue EB packet, for a single transmission only */
+    if(!(p = tsch_queue_add_packet(&tsch_eb_address, 1, NULL, NULL))) {
+        LOG_ERR("! could not enqueue EB packet\n");
+    } else {
+        LOG_INFO("TSCH: enqueue EB packet after join %u %u\n",
+                packetbuf_totlen(), packetbuf_hdrlen());
+        p->tsch_sync_ie_offset = tsch_sync_ie_offset;
+        p->header_len = hdr_len;
+    }
+  }
+}
+/*---------------------------------------------------------------------------*/
+void 
+tsch_send_eb()
+{
+    uint8_t hdr_len = 0;
+    uint8_t tsch_sync_ie_offset;
+    /* Prepare the EB packet and schedule it to be sent */
+    if(tsch_packet_create_eb(&hdr_len, &tsch_sync_ie_offset) > 0) {
+        struct tsch_packet *p;
+        /* Enqueue EB packet, for a single transmission only */
+        if(!(p = tsch_queue_add_packet(&tsch_eb_address, 1, NULL, NULL))) {
+            LOG_ERR("! could not enqueue EB packet\n");
+        } else {
+            LOG_INFO("TSCH: enqueue EB packet %u %u\n",
+                    packetbuf_totlen(), packetbuf_hdrlen());
+            p->tsch_sync_ie_offset = tsch_sync_ie_offset;
+            p->header_len = hdr_len;
+        }
+    }
+}
+/*---------------------------------------------------------------------------*/
 static void
 eb_input(struct input_packet *current_input)
 {
@@ -471,6 +537,7 @@ eb_input(struct input_packet *current_input)
         }
 #endif /* TSCH_AUTOSELECT_TIME_SOURCE */
       }
+      
 
       /* TSCH hopping sequence */
       if(eb_ies.ie_channel_hopping_sequence_id != 0) {
@@ -501,12 +568,18 @@ tsch_rx_process_pending()
     struct input_packet *current_input = &input_array[input_index];
     frame802154_t frame;
     uint8_t ret = frame802154_parse(current_input->payload, current_input->len, &frame);
+#ifndef TSCH_CONF_FORWARD_EB_TO_NETWORK
     int is_data = ret && frame.fcf.frame_type == FRAME802154_DATAFRAME;
+#endif
     int is_eb = ret
       && frame.fcf.frame_version == FRAME802154_IEEE802154_2015
       && frame.fcf.frame_type == FRAME802154_BEACONFRAME;
 
-    if(is_data) {
+
+#ifndef TSCH_CONF_FORWARD_EB_TO_NETWORK
+    if(is_data) 
+#endif
+    {
       /* Skip EBs and other control messages */
       /* Copy to packetbuf for processing */
       packetbuf_copyfrom(current_input->payload, current_input->len);
@@ -514,12 +587,19 @@ tsch_rx_process_pending()
       packetbuf_set_attr(PACKETBUF_ATTR_CHANNEL, current_input->channel);
     }
 
+#ifndef TSCH_CONF_FORWARD_EB_TO_NETWORK 
     if(is_data) {
       /* Pass to upper layers */
       packet_input();
     } else if(is_eb) {
       eb_input(current_input);
     }
+#else
+    if (is_eb) {
+        eb_input(current_input);
+    }
+    packet_input();
+#endif
 
     /* Remove input from ringbuf */
     ringbufindex_get(&input_ringbuf);
@@ -583,6 +663,7 @@ void
 tsch_disassociate(void)
 {
   if(tsch_is_associated == 1) {
+    leds_single_on(1);
     tsch_is_associated = 0;
     tsch_adaptive_timesync_reset();
     process_poll(&tsch_process);
@@ -726,7 +807,8 @@ tsch_associate(const struct input_packet *input_eb, rtimer_clock_t timestamp)
       frame802154_set_pan_id(frame.src_pid);
 
       /* Synchronize on EB */
-      tsch_slot_operation_sync(timestamp - tsch_timing[tsch_ts_tx_offset], &tsch_current_asn);
+      LOG_INFO("sync on EB, timestamp = %d, tsch_timing = %d, tsch_current_asn = %ld\n", (uint16_t) timestamp, (uint16_t) tsch_timing[tsch_ts_tx_offset], tsch_current_asn.ls4b);
+      tsch_slot_operation_sync(timestamp - tsch_timing[tsch_ts_tx_offset] - 6, &tsch_current_asn);
 
       /* Update global flags */
       tsch_is_associated = 1;
@@ -737,8 +819,27 @@ tsch_associate(const struct input_packet *input_eb, rtimer_clock_t timestamp)
       min_drift_seen = 0;
       max_drift_seen = 0;
 
-      /* Start sending keep-alives now that tsch_is_associated is set */
-      tsch_schedule_keepalive(0);
+      /* add new slot to the schedule based on number of hops from the root */
+      LOG_DBG("TSCH: EB from node w/ hops_to_root = %d\n", ies.hops_to_root);
+      tsch_eb_scheduler_init();
+      tsch_eb_scheduler_add_link(ies.hops_to_root, 0); 
+
+      /* schedule EB forwarding */
+        uint8_t hdr_len = 0;
+        uint8_t tsch_sync_ie_offset;
+        /* Prepare the EB packet and schedule it to be sent */
+        if(tsch_packet_create_eb(&hdr_len, &tsch_sync_ie_offset) > 0) {
+            struct tsch_packet *p;
+            /* Enqueue EB packet, for a single transmission only */
+            if(!(p = tsch_queue_add_packet(&tsch_eb_address, 1, NULL, NULL))) {
+                LOG_ERR("! could not enqueue EB packet\n");
+            } else {
+                LOG_INFO("TSCH: enqueue EB packet after receiving! %u %u\n",
+                        packetbuf_totlen(), packetbuf_hdrlen());
+                p->tsch_sync_ie_offset = tsch_sync_ie_offset;
+                p->header_len = hdr_len;
+            }
+        } 
 
       /* If this EB is coming from the root, add it to the root list */
       if(ies.ie_join_priority == 0) {
@@ -801,8 +902,12 @@ PT_THREAD(tsch_scan(struct pt *pt))
     /* Switch to a (new) channel for scanning */
     if(current_channel == 0 || now_time - current_channel_since > TSCH_CHANNEL_SCAN_DURATION) {
       /* Pick a channel at random in TSCH_JOIN_HOPPING_SEQUENCE */
+#if TSCH_JOIN_CHANNEL_FROM_ID
+      uint8_t scan_channel = tsch_get_join_channel();        
+#else
       uint8_t scan_channel = TSCH_JOIN_HOPPING_SEQUENCE[
           random_rand() % sizeof(TSCH_JOIN_HOPPING_SEQUENCE)];
+#endif
 
       NETSTACK_RADIO.set_value(RADIO_PARAM_CHANNEL, scan_channel);
       current_channel = scan_channel;
@@ -872,7 +977,11 @@ PROCESS_THREAD(tsch_process, ev, data)
     while(!tsch_is_associated) {
       if(tsch_is_coordinator) {
         /* We are coordinator, start operating now */
+        tsch_eb_scheduler_init();
+        tsch_schedule_add_link(sf_beacon, LINK_OPTION_TX, LINK_TYPE_ADVERTISING, &tsch_eb_address, 0, 0, 1);
         tsch_start_coordinator();
+        /* send initial EB */
+        tsch_send_eb();
       } else {
         /* Start scanning, will attempt to join when receiving an EB */
         PROCESS_PT_SPAWN(&scan_pt, tsch_scan(&scan_pt));
@@ -895,7 +1004,6 @@ PROCESS_THREAD(tsch_process, ev, data)
 
   PROCESS_END();
 }
-
 /*---------------------------------------------------------------------------*/
 /* A periodic process to send TSCH Enhanced Beacons (EB) */
 PROCESS_THREAD(tsch_send_eb_process, ev, data)
@@ -904,62 +1012,15 @@ PROCESS_THREAD(tsch_send_eb_process, ev, data)
 
   PROCESS_BEGIN();
 
-  /* Wait until association */
-  etimer_set(&eb_timer, CLOCK_SECOND / 10);
-  while(!tsch_is_associated) {
-    PROCESS_WAIT_UNTIL(etimer_expired(&eb_timer));
-    etimer_reset(&eb_timer);
-  }
-
-  /* Set an initial delay except for coordinator, which should send an EB asap */
-  if(!tsch_is_coordinator) {
-    etimer_set(&eb_timer, TSCH_EB_PERIOD ? random_rand() % TSCH_EB_PERIOD : 0);
-    PROCESS_WAIT_UNTIL(etimer_expired(&eb_timer));
-  }
-
   while(1) {
     unsigned long delay;
 
-    if(!tsch_is_associated) {
-      LOG_DBG("skip sending EB: not joined a TSCH network\n");
-    } else if(tsch_current_eb_period <= 0) {
-      LOG_DBG("skip sending EB: EB period disabled\n");
-#ifdef TSCH_RPL_CHECK_DODAG_JOINED
-    } else if(!TSCH_RPL_CHECK_DODAG_JOINED()) {
-      /* Implementation section 6.3 of RFC 8180 */
-      LOG_DBG("skip sending EB: not joined a routing DAG\n");
-#endif /* TSCH_RPL_CHECK_DODAG_JOINED */
-    } else if(NETSTACK_ROUTING.is_in_leaf_mode()) {
-      /* don't send when in leaf mode */
-      LOG_DBG("skip sending EB: in the leaf mode\n");
-    } else if(tsch_queue_nbr_packet_count(n_eb) != 0) {
-      /* Enqueue EB only if there isn't already one in queue */
-      LOG_DBG("skip sending EB: already queued\n");
-    } else {
-      uint8_t hdr_len = 0;
-      uint8_t tsch_sync_ie_offset;
-      /* Prepare the EB packet and schedule it to be sent */
-      if(tsch_packet_create_eb(&hdr_len, &tsch_sync_ie_offset) > 0) {
-        struct tsch_packet *p;
-        /* Enqueue EB packet, for a single transmission only */
-        if(!(p = tsch_queue_add_packet(&tsch_eb_address, 1, NULL, NULL))) {
-          LOG_ERR("! could not enqueue EB packet\n");
-        } else {
-          LOG_INFO("TSCH: enqueue EB packet %u %u\n",
-                   packetbuf_totlen(), packetbuf_hdrlen());
-          p->tsch_sync_ie_offset = tsch_sync_ie_offset;
-          p->header_len = hdr_len;
-        }
-      }
-    }
-    if(tsch_current_eb_period > 0) {
-      /* Next EB transmission with a random delay
-       * within [tsch_current_eb_period*0.75, tsch_current_eb_period[ */
-      delay = (tsch_current_eb_period - tsch_current_eb_period / 4)
-        + random_rand() % (tsch_current_eb_period / 4);
-    } else {
-      delay = TSCH_EB_PERIOD;
-    }
+    LOG_DBG("trying to enqueue EB %d\n", tsch_is_coordinator);
+
+    if (tsch_is_coordinator) 
+        tsch_send_eb();
+
+    delay = 32;    
     etimer_set(&eb_timer, delay);
     PROCESS_WAIT_UNTIL(etimer_expired(&eb_timer));
   }
@@ -1107,7 +1168,7 @@ send_packet(mac_callback_t sent, void *ptr)
     if(++tsch_packet_seqno == 0) {
       tsch_packet_seqno++;
     }
-    packetbuf_set_attr(PACKETBUF_ATTR_MAC_SEQNO, tsch_packet_seqno);
+    // packetbuf_set_attr(PACKETBUF_ATTR_MAC_SEQNO, tsch_packet_seqno);
     packetbuf_set_attr(PACKETBUF_ATTR_MAC_ACK, 1);
   } else {
     /* Broadcast packets shall be added to broadcast queue
@@ -1118,11 +1179,18 @@ send_packet(mac_callback_t sent, void *ptr)
 
   packetbuf_set_attr(PACKETBUF_ATTR_FRAME_TYPE, FRAME802154_DATAFRAME);
 
-#if LLSEC802154_ENABLED
-  tsch_security_set_packetbuf_attr(FRAME802154_DATAFRAME);
-#endif /* LLSEC802154_ENABLED */
+// #if LLSEC802154_ENABLED
+//   tsch_security_set_packetbuf_attr(FRAME802154_DATAFRAME);
+// #endif /* LLSEC802154_ENABLED */
 
+#if !NETSTACK_CONF_BRIDGE_MODE
+  /*
+   * In the Contiki stack, the source address of a frame is set at the RDC
+   * layer. Since TSCH doesn't use any RDC protocol and bypasses the layer to
+   * transmit a frame, it should set the source address by itself.
+   */
   packetbuf_set_addr(PACKETBUF_ADDR_SENDER, &linkaddr_node_addr);
+#endif
 
   max_transmissions = packetbuf_attr(PACKETBUF_ATTR_MAX_MAC_TRANSMISSIONS);
   if(max_transmissions == 0) {
@@ -1203,14 +1271,14 @@ packet_input(void)
 static int
 turn_on(void)
 {
+  
   if(tsch_is_initialized == 1 && tsch_is_started == 0) {
     tsch_is_started = 1;
+      LOG_DBG("start EB process? %d\n", tsch_is_coordinator);
     /* Process tx/rx callback and log messages whenever polled */
     process_start(&tsch_pending_events_process, NULL);
-    if(TSCH_EB_PERIOD > 0) {
-      /* periodically send TSCH EBs */
-      process_start(&tsch_send_eb_process, NULL);
-    }
+    /* only the coordinator creates EB, all others nodes forward them */
+    process_start(&tsch_send_eb_process, NULL);
     /* try to associate to a network or start one if setup as coordinator */
     process_start(&tsch_process, NULL);
     LOG_INFO("starting as %s\n", tsch_is_coordinator ? "coordinator": "node");
@@ -1247,7 +1315,7 @@ max_payload(void)
   }
 
   /* Set packetbuf security attributes */
-  tsch_security_set_packetbuf_attr(FRAME802154_DATAFRAME);
+//   tsch_security_set_packetbuf_attr(FRAME802154_DATAFRAME);
 
   framer_hdrlen = NETSTACK_FRAMER.length();
   if(framer_hdrlen < 0) {

@@ -82,6 +82,8 @@ struct ieee802154_ies {
   struct tsch_slotframe_and_links ie_tsch_slotframe_and_link;
   /* Payload Long MLME IEs */
   uint8_t ie_channel_hopping_sequence_id;
+  /* fields to help network routing */
+  uint8_t hops_to_root;
   /* We include and parse only the sequence len and list and omit unused fields */
   uint16_t ie_hopping_sequence_len;
   uint8_t ie_hopping_sequence_list[TSCH_HOPPING_SEQUENCE_MAX_LEN];
@@ -127,6 +129,8 @@ int frame80215e_create_ie_tsch_timeslot(uint8_t *buf, int len,
 /* MLME sub-IE. TSCH channel hopping sequence. Used in EBs: hopping sequence */
 int frame80215e_create_ie_tsch_channel_hopping_sequence(uint8_t *buf, int len,
     struct ieee802154_ies *ies);
+
+int frame802154_create_ie_network_routing(uint8_t *buf, int len, struct ieee802154_ies *ies);
 
 /* Parse all Information Elements of a frame */
 int frame802154e_parse_information_elements(const uint8_t *buf, uint8_t buf_size,

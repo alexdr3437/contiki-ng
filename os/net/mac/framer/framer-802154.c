@@ -62,7 +62,10 @@ create_frame(int do_create)
   frame802154_t params;
   int hdr_len;
 
+  LOG_INFO("create frame\n");
+
   if(frame802154_get_pan_id() == 0xffff) {
+    LOG_ERR("error pan id\n");
     return -1;
   }
 

@@ -68,6 +68,7 @@
 #include "net/mac/llsec802154.h"
 #include "net/linkaddr.h"
 #include <string.h>
+#include <stdio.h>
 
 /**  \brief The 16-bit identifier of the PAN on which the device is
  *   operating.  If this value is 0xffff, the device is not
@@ -215,6 +216,7 @@ frame802154_check_dest_panid(frame802154_t *frame)
      (frame->dest_pid != frame802154_get_pan_id()
      && frame->dest_pid != FRAME802154_BROADCASTPANDID)) {
     /* Packet to another PAN */
+    printf("!! failed panid\n");
     return 0;
   }
   return 1;
@@ -242,6 +244,7 @@ frame802154_extract_linkaddr(frame802154_t *frame,
   int dest_addr_len;
 
   if(frame == NULL) {
+      printf("!! failed source and dest addr\n");
     return 0;
   }
   /* Check and extract source address */
@@ -281,6 +284,8 @@ frame802154_extract_linkaddr(frame802154_t *frame,
       linkaddr_copy(dest_address, (linkaddr_t *)frame->dest_addr);
     }
   }
+
+//   printf("!! source addr = %02x%02x, dest addr = %02x%02x\n", source_address->u8[0], source_address->u8[1], dest_address->u8[0], dest_address->u8[1]);
 
   return 1;
 }

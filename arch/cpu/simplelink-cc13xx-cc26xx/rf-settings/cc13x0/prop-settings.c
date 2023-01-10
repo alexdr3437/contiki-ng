@@ -55,10 +55,12 @@
 #include "sys/cc.h"
 /*---------------------------------------------------------------------------*/
 #include <ti/devices/DeviceFamily.h>
+#include DeviceFamily_constructPath(inc/hw_rfc_dbell.h)
 #include DeviceFamily_constructPath(driverlib/rf_mailbox.h)
 #include DeviceFamily_constructPath(driverlib/rf_common_cmd.h)
 #include DeviceFamily_constructPath(driverlib/rf_prop_cmd.h)
 #include DeviceFamily_constructPath(rf_patches/rf_patch_cpe_genfsk.h)
+#include DeviceFamily_constructPath(rf_patches/rf_patch_rfe_genfsk.h)
 #include DeviceFamily_constructPath(rf_patches/rf_patch_rfe_genfsk.h)
 
 #include <ti/drivers/rf/RF.h>
@@ -157,6 +159,7 @@ uint32_t rf_prop_overrides[] CC_ALIGN(4) =
   // Tx: Set PA trim to max (in ADI0, set PACTL0=0xF8)
   ADI_REG_OVERRIDE(0,12,0xF8),
 #endif
+//   HW_REG_OVERRIDE(0x1110, RFC_DBELL_SYSGPOCTL_GPOCTL1_RATGPO0),
   (uint32_t)0xFFFFFFFF,
 };
 /*---------------------------------------------------------------------------*/

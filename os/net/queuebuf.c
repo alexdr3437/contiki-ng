@@ -50,6 +50,7 @@
 #endif
 
 #include <string.h> /* for memcpy() */
+#include <stdio.h>
 
 /* Structure pointing to a buffer either stored
    in RAM or swapped in CFS */
@@ -342,6 +343,20 @@ queuebuf_new_from_packetbuf(void)
 
     buframptr->len = packetbuf_copyto(buframptr->data);
     packetbuf_attr_copyto(buframptr->attrs, buframptr->addrs);
+
+    uint8_t *p = packetbuf_hdrptr();
+    printf("send hdr buf[%d:%d] = ", 0, packetbuf_hdrlen());
+    for (uint8_t i = 0; i <  packetbuf_hdrlen(); i++) {
+        printf("%02x ", p[i]);
+    }
+    printf("\n");
+    
+    p = packetbuf_dataptr();
+    printf("send data buf[%d:%d] = ", 0, packetbuf_datalen());
+    for (uint8_t i = 0; i <  packetbuf_datalen(); i++) {
+        printf("%02x ", p[i]);
+    }
+    printf("\n");
 
 #if WITH_SWAP
     if(buf->location == IN_CFS) {

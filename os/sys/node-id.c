@@ -41,16 +41,24 @@
 #include "sys/node-id.h"
 #include "net/linkaddr.h"
 #include "services/deployment/deployment.h"
+#include "arch/platform/cooja/dev/moteid.h"
+
+/* Log configuration */
+#include "sys/log.h"
+#define LOG_MODULE "DEP"
+#define LOG_LEVEL LOG_LEVEL_INFO
 
 uint16_t node_id = 0;
 
-void
-node_id_init(void) {
+void node_id_init(void)
+{
 #if BUILD_WITH_DEPLOYMENT
-  deployment_init();
-#else /* BUILD_WITH_DEPLOYMENT */
-  /* Initialize with a default value derived from linkaddr */
-  node_id = linkaddr_node_addr.u8[LINKADDR_SIZE - 1]
-            + (linkaddr_node_addr.u8[LINKADDR_SIZE - 2] << 8);
+    LOG_INFO("deploy!\n");
+    deployment_init();
+#else  /* BUILD_WITH_DEPLOYMENT */
+    LOG_INFO("link addr = ");
+    LOG_INFO_LLADDR(&linkaddr_node_addr);
+    LOG_INFO_("\n");
+    node_id = NODE_ID;
 #endif /* BUILD_WITH_DEPLOYMENT */
 }

@@ -156,7 +156,7 @@ static uint32_t overrides[] =
   SMARTRF_SETTINGS_BOARD_OVERRIDES
 
   /* Band-specific overrides, if any */
-  SMARTRF_SETTINGS_BAND_OVERRIDES
+  SMARTRF_SETTINGS_BAND_OVERRIDES,
 
   (uint32_t)0xFFFFFFFF,
 };

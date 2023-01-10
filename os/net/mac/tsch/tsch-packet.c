@@ -48,9 +48,11 @@
 #include "net/mac/tsch/tsch.h"
 #include "net/mac/framer/frame802154.h"
 #include "net/mac/framer/framer-802154.h"
+#include "net/mac/framer/frame802154e-ie.h"
 #include "net/netstack.h"
 #include "lib/ccm-star.h"
 #include "lib/aes-128.h"
+#include "sys/node-id.h"
 
 /* Log configuration */
 #include "sys/log.h"
@@ -69,6 +71,8 @@
  * platform.
  */
 static struct packetbuf_attr eackbuf_attrs[PACKETBUF_NUM_ATTRS];
+
+static uint8_t hops_to_root = -1;
 
 /* The offset of the frame pending bit flag within the first byte of FCF */
 #define IEEE802154_FRAME_PENDING_BIT_OFFSET 4
@@ -202,7 +206,7 @@ tsch_packet_parse_eack(const uint8_t *buf, int buf_size,
     }
 #endif /* LLSEC802154_ENABLED */
     /* Parse information elements. We need to substract the MIC length, as the exact payload len is needed while parsing */
-    if((ret = frame802154e_parse_information_elements(buf + curr_len, buf_size - curr_len - mic_len, ies)) == -1) {
+    if((ret = frame802154e_parse_information_elements(buf + curr_len, buf_size - curr_len - mic_len + 1, ies)) == -1) {
       return 0;
     }
     curr_len += ret;
@@ -320,6 +324,17 @@ tsch_packet_create_eb(uint8_t *hdr_len, uint8_t *tsch_sync_ie_offset)
   packetbuf_set_datalen(packetbuf_datalen() + ie_len);
 #endif
 
+  
+  ies.hops_to_root = node_id == ROOT_ID ? 0 : hops_to_root;
+  ie_len = frame802154_create_ie_network_routing(p,
+                                                 packetbuf_remaininglen(),
+                                                 &ies);
+  if (ie_len < 0) {
+    return -1;
+  }
+  p += ie_len;
+  packetbuf_set_datalen(packetbuf_datalen() + ie_len);
+
   ies.ie_mlme_len = packetbuf_datalen();
 
   /* make room for Payload IE header */
@@ -352,7 +367,7 @@ tsch_packet_create_eb(uint8_t *hdr_len, uint8_t *tsch_sync_ie_offset)
   tsch_security_set_packetbuf_attr(FRAME802154_BEACONFRAME);
 #endif /* LLSEC802154_ENABLED */
 
-  if(NETSTACK_FRAMER.create() < 0) {
+  if(framer_802154.create() < 0) {
     return -1;
   }
 
@@ -436,11 +451,16 @@ tsch_packet_parse_eb(const uint8_t *buf, int buf_size,
 
     /* Parse information elements. We need to substract the MIC length, as the exact payload len is needed while parsing */
     if((ret = frame802154e_parse_information_elements(buf + curr_len, buf_size - curr_len - mic_len, ies)) == -1) {
-      LOG_ERR("! parse_eb: failed to parse IEs\n");
+      LOG_ERR("! parse_eb: failed to parse IEEEEs\n");
       return 0;
     }
     curr_len += ret;
   }
+
+  if (ies->hops_to_root < (hops_to_root - 1)) {
+    hops_to_root = ies->hops_to_root + 1;
+  }
+  packetbuf_set_attr(PACKETBUF_ATTR_HOPS_TO_ROOT, ies->hops_to_root);
 
   if(hdr_len != NULL) {
     *hdr_len += ies->ie_payload_ie_offset;
