@@ -216,7 +216,6 @@ frame802154_check_dest_panid(frame802154_t *frame)
      (frame->dest_pid != frame802154_get_pan_id()
      && frame->dest_pid != FRAME802154_BROADCASTPANDID)) {
     /* Packet to another PAN */
-    printf("!! failed panid\n");
     return 0;
   }
   return 1;
@@ -244,7 +243,6 @@ frame802154_extract_linkaddr(frame802154_t *frame,
   int dest_addr_len;
 
   if(frame == NULL) {
-      printf("!! failed source and dest addr\n");
     return 0;
   }
   /* Check and extract source address */
@@ -284,8 +282,6 @@ frame802154_extract_linkaddr(frame802154_t *frame,
       linkaddr_copy(dest_address, (linkaddr_t *)frame->dest_addr);
     }
   }
-
-//   printf("!! source addr = %02x%02x, dest addr = %02x%02x\n", source_address->u8[0], source_address->u8[1], dest_address->u8[0], dest_address->u8[1]);
 
   return 1;
 }
@@ -519,10 +515,12 @@ frame802154_parse(uint8_t *data, int len, frame802154_t *pf)
 
   p = data;
 
+  printf("fcf = %02x %02x\n", p[0], p[1]);
+
   /* decode the FCF */
   frame802154_parse_fcf(p, &fcf);
   memcpy(&pf->fcf, &fcf, sizeof(frame802154_fcf_t));
-  p += 2;                             /* Skip first two bytes */
+  p += 2;                             /* Skip first two bytes */  
 
   if(fcf.sequence_number_suppression == 0) {
     pf->seq = p[0];

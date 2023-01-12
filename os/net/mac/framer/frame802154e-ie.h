@@ -84,6 +84,7 @@ struct ieee802154_ies {
   uint8_t ie_channel_hopping_sequence_id;
   /* fields to help network routing */
   uint8_t hops_to_root;
+  uint8_t free_slot;
   /* We include and parse only the sequence len and list and omit unused fields */
   uint16_t ie_hopping_sequence_len;
   uint8_t ie_hopping_sequence_list[TSCH_HOPPING_SEQUENCE_MAX_LEN];

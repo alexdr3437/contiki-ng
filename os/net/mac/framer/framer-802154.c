@@ -62,10 +62,7 @@ create_frame(int do_create)
   frame802154_t params;
   int hdr_len;
 
-  LOG_INFO("create frame\n");
-
   if(frame802154_get_pan_id() == 0xffff) {
-    LOG_ERR("error pan id\n");
     return -1;
   }
 
@@ -239,13 +236,24 @@ parse(void)
   frame802154_t frame;
   int hdr_len;
 
+
+  uint8_t *data = packetbuf_dataptr();
+  LOG_DBG("data = ");
+  for (int i=0; i<packetbuf_datalen(); i++) {
+    LOG_DBG_("%02x ", data[i]);
+  }
+  LOG_DBG_("\n");
+
   hdr_len = frame802154_parse(packetbuf_dataptr(), packetbuf_datalen(), &frame);
+
 
   if(hdr_len && packetbuf_hdrreduce(hdr_len)) {
     packetbuf_set_attr(PACKETBUF_ATTR_FRAME_TYPE, frame.fcf.frame_type);
     packetbuf_set_attr(PACKETBUF_ATTR_MAC_ACK, frame.fcf.ack_required);
 
     if(frame.fcf.dest_addr_mode) {
+      LOG_DBG("my_PID = %x\n", frame802154_get_pan_id());
+      LOG_DBG("dest_pid = %x\n", frame.dest_pid);
       if(frame.dest_pid != frame802154_get_pan_id() &&
          frame.dest_pid != FRAME802154_BROADCASTPANDID) {
         /* Packet to another PAN */

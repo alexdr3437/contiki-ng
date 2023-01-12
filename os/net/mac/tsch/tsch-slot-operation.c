@@ -55,13 +55,6 @@
 #include "net/mac/tsch/tsch.h"
 #include "sys/critical.h"
 
-#include <ti/drivers/rf/RF.h>
-#include <ti/drivers/PIN.h>
-#include <ti/drivers/pin/PINCC26XX.h>
-#include <ti/devices/DeviceFamily.h>
-#include DeviceFamily_constructPath(inc/hw_rfc_rat.h)
-#include DeviceFamily_constructPath(inc/hw_rfc_dbell.h)
-
 #include "sys/log.h"
 /* TSCH debug macros, i.e. to set LEDs or GPIOs on various TSCH
  * timeslot events */
@@ -1083,6 +1076,11 @@ PT_THREAD(tsch_slot_operation(struct rtimer *t, void *ptr))
       int is_active_slot;
       TSCH_DEBUG_SLOT_START();
       tsch_in_slot_operation = 1;
+
+      if (tsch_current_asn.ls4b > TSCH_STOP_SEARCH_AT_ASN) {
+        tsch_disable_search();
+      }
+
       /* Measure on-air noise level while TSCH is idle */
       tsch_stats_sample_rssi();
       /* Reset drift correction */
@@ -1116,13 +1114,9 @@ PT_THREAD(tsch_slot_operation(struct rtimer *t, void *ptr))
           /* Reset burst_link_scheduled flag. Will be set again if burst continue. */
           burst_link_scheduled = 0;
         } else {
-          if (current_link->link_type == LINK_TYPE_ADVERTISING) {
-            tsch_current_channel = 20;
-          } else {
             /* Hop channel */
             tsch_current_channel_offset = tsch_get_channel_offset(current_link, current_packet);
-            tsch_current_channel = tsch_calculate_channel(&tsch_current_asn, tsch_current_channel_offset);
-          }
+            tsch_current_channel = current_link->link_type == LINK_TYPE_ADVERTISING ? tsch_hopping_sequence[tsch_current_channel_offset] : tsch_calculate_channel(&tsch_current_asn, tsch_current_channel_offset);
         }
         NETSTACK_RADIO.set_value(RADIO_PARAM_CHANNEL, tsch_current_channel);
         /* Turn the radio on already here if configured so; necessary for radios with slow startup */

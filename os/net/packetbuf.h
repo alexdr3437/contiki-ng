@@ -246,6 +246,7 @@ enum {
 #endif /* LLSEC802154_USES_FRAME_COUNTER */
 
   PACKETBUF_ATTR_HOPS_TO_ROOT,
+  PACKETBUF_ATTR_FREE_SLOT,
 
   /* Scope 2 attributes: used between end-to-end nodes. */
   /* These must be last */

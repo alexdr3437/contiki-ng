@@ -1,7 +1,13 @@
 {
     "files.associations": {
-        "leds.h": "c",
-        "gpio-hal.h": "c",
-        "tsch-types.h": "c"
+        "*.ipp": "c",
+        "*.tcc": "c",
+        "string_view": "c",
+        "variant": "c",
+        "deployment.h": "c",
+        "tsch.h": "c",
+        "node-id.h": "c",
+        "packetbuf.h": "c",
+        "queuebuf.h": "c"
     }
 }

@@ -59,6 +59,6 @@ void node_id_init(void)
     LOG_INFO("link addr = ");
     LOG_INFO_LLADDR(&linkaddr_node_addr);
     LOG_INFO_("\n");
-    node_id = NODE_ID;
+    node_id = linkaddr_node_addr.u8[0];
 #endif /* BUILD_WITH_DEPLOYMENT */
 }

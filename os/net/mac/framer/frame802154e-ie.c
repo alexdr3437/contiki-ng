@@ -43,7 +43,7 @@
 /* Log configuration */
 #include "sys/log.h"
 #define LOG_MODULE "Frame 15.4"
-#define LOG_LEVEL LOG_LEVEL_INFO
+#define LOG_LEVEL LOG_LEVEL_FRAMER
 
 /* c.f. IEEE 802.15.4e Table 4b */
 enum ieee802154e_header_ie_id {
@@ -347,8 +347,9 @@ frame802154_create_ie_network_routing(uint8_t *buf, int len, struct ieee802154_i
   if (ies == NULL) {
     return -1;
   }
-  ie_len = 1;
+  ie_len = 2;
   buf[2] = ies->hops_to_root;
+  buf[3] = ies->free_slot;
   create_mlme_short_ie_descriptor(buf, MLME_SHORT_IE_TSCH_NETWORK_INFO, ie_len);
   return 2 + ie_len;
 }
@@ -448,8 +449,9 @@ frame802154e_parse_mlme_short_ie(const uint8_t *buf, int len,
       }
       break;
     case MLME_SHORT_IE_TSCH_NETWORK_INFO:
-      if(len == 1) {
+      if(len == 2) {
         ies->hops_to_root = buf[0];
+        ies->free_slot = buf[1];
       }
       return len;
   }
@@ -505,7 +507,6 @@ frame802154e_parse_information_elements(const uint8_t *buf, uint8_t buf_size,
   /* Loop over all IEs */
   while(buf_size > 0) {
     if(buf_size < 2) { /* Not enough space for IE descriptor */
-        LOG_DBG("ret here...\n");
       return -1;
     }
     READ16(buf, ie_desc);
@@ -611,7 +612,7 @@ frame802154e_parse_information_elements(const uint8_t *buf, uint8_t buf_size,
           id = (ie_desc & 0x7f00) >> 8; /* b8-b14 */
           LOG_DBG("short mlme ie len %u id %x\n", len, id);
           if(len > buf_size || frame802154e_parse_mlme_short_ie(buf, len, id, ies) == -1) {
-            LOG_DBG("failed to parse ie\n");
+            LOG_ERR("failed to parse ie\n");
             return -1;
           }
         } else {

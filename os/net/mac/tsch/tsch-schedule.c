@@ -287,6 +287,7 @@ int
 tsch_schedule_remove_link(struct tsch_slotframe *slotframe, struct tsch_link *l)
 {
   if(slotframe != NULL && l != NULL && l->slotframe_handle == slotframe->handle) {
+      LOG_DBG("antoher lock?\n");
     if(tsch_get_lock()) {
       uint8_t link_options;
       linkaddr_t addr;
@@ -338,6 +339,7 @@ int
 tsch_schedule_remove_link_by_timeslot(struct tsch_slotframe *slotframe,
                                       uint16_t timeslot, uint16_t channel_offset)
 {
+    LOG_DBG("inside\n");
   int ret = 0;
   if(!tsch_is_locked()) {
     if(slotframe != NULL) {
@@ -345,7 +347,9 @@ tsch_schedule_remove_link_by_timeslot(struct tsch_slotframe *slotframe,
       /* Loop over all items and remove all matching links */
       while(l != NULL) {
         struct tsch_link *next = list_item_next(l);
+        LOG_DBG("while\n");
         if(l->timeslot == timeslot && l->channel_offset == channel_offset) {
+          LOG_DBG("remove\n");
           if(tsch_schedule_remove_link(slotframe, l)) {
             ret = 1;
           }

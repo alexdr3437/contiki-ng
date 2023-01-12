@@ -220,6 +220,7 @@ void tsch_set_join_priority(uint8_t jp);
  */
 void tsch_set_eb_period(uint32_t period);
 void tsch_send_eb(void);
+void tsch_disable_search(void);
 /**
  * Set the desynchronization timeout after which a node sends a unicasst
  * keep-alive (KA) to its time source. Set to 0 to stop sending KAs. The
