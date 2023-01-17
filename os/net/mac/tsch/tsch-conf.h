@@ -467,8 +467,30 @@ by default, useful in case of duplicate seqno */
 
 /* Configurable Rx guard time is micro-seconds */
 #ifndef TSCH_CONF_RX_WAIT
-#define TSCH_CONF_RX_WAIT 2200
+#define TSCH_CONF_RX_WAIT 1000
 #endif /* TSCH_CONF_RX_WAIT */
+
+
+/* Time the nodes will spend broadcast beacons to allow other nodes to join the network */
+#ifdef TSCH_CONF_SEARCH_DURATION_S
+#define TSCH_SEARCH_DURATION_S TSCH_CONF_SEARCH_DURATION_S 
+#define TSCH_SEARCH_DURATION TSCH_CONF_SEARCH_DURATION_S * 1e6 / TSCH_DEFAULT_TIMESLOT_TIMING
+#else
+#define TSCH_SEARCH_DURATION_S 30
+#define TSCH_SEARCH_DURATION 3000
+#endif
+
+
+
+/* Time before we start using drift to determine how often to wake up and sync (begins after TSCH_SEARCH_DURATION_S) */
+#ifdef TSCH_CONF_DRIFT_CHARACTERIZATION_DURATION_S
+#define TSCH_DRIFT_CHARACTERIZATION_DURATION_S TSCH_CONF_DRIFT_CHARACTERIZATION_DURATION_S
+#define TSCH_DRIFT_CHARACTERIZATION_DURATION TSCH_CONF_DRIFT_CHARACTERIZATION_DURATION_S * 1e6 / TSCH_DEFAULT_TIMESLOT_TIMING
+#else
+#define TSCH_DRIFT_CHARACTERIZATION_DURATION_S 60 
+#define TSCH_DRIFT_CHARACTERIZATION_DURATION 6000
+#endif
+
 
 #endif /* TSCH_CONF_H_ */
 /** @} */

@@ -994,7 +994,7 @@ PROCESS_THREAD(tsch_send_eb_process, ev, data)
     /* send a beacon if we are in search mode */
     if (tsch_is_searching) {
         tsch_send_eb();
-    } else {
+    } else if (scheduler_doing_search()) {
         scheduler_stop_search();
     }
 
