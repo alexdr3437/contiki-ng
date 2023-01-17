@@ -410,8 +410,6 @@ tsch_packet_parse_eb(const uint8_t *buf, int buf_size,
     return 0;
   }
 
-
-  LOG_DBG("do parse eb\n");
   /* Parse 802.15.4-2006 frame, i.e. all fields before Information Elements */
   if((ret = frame802154_parse((uint8_t *)buf, buf_size, frame)) == 0) {
     LOG_ERR("! parse_eb: failed to parse frame\n");
@@ -463,7 +461,6 @@ tsch_packet_parse_eb(const uint8_t *buf, int buf_size,
   packetbuf_set_addr(PACKETBUF_ADDR_SENDER, (const linkaddr_t *)frame->src_addr);
   packetbuf_set_attr(PACKETBUF_ATTR_HOPS_TO_ROOT, ies->hops_to_root);
   packetbuf_set_attr(PACKETBUF_ATTR_FREE_SLOT, ies->free_slot);
-  LOG_DBG("update?\n");
   sqnet_update_routing_table();
 
   if(hdr_len != NULL) {

@@ -452,7 +452,6 @@ eb_input(struct input_packet *current_input)
   if(tsch_packet_parse_eb(current_input->payload, current_input->len,
                           &frame, &eb_ies, NULL, 1)) {
     /* PAN ID check and authentication done at rx time */
-    LOG_DBG("PARSE EB\n");
     /* Got an EB from a different neighbor than our time source, keep enough data
      * to switch to it in case we lose the link to our time source */
     struct tsch_neighbor *ts = tsch_queue_get_time_source();
@@ -460,7 +459,6 @@ eb_input(struct input_packet *current_input)
     if(ts_addr == NULL || !linkaddr_cmp((linkaddr_t *)&frame.src_addr, ts_addr)) {
       linkaddr_copy(&last_eb_nbr_addr, (linkaddr_t *)&frame.src_addr);
       last_eb_nbr_jp = eb_ies.ie_join_priority;
-      LOG_DBG("DIFFERENT TIME SOURCE~!\n");
     }
 
 #if TSCH_AUTOSELECT_TIME_SOURCE
@@ -1263,7 +1261,6 @@ turn_on(void)
   
   if(tsch_is_initialized == 1 && tsch_is_started == 0) {
     tsch_is_started = 1;
-      LOG_DBG("start EB process? %d\n", tsch_is_coordinator);
     /* Process tx/rx callback and log messages whenever polled */
     process_start(&tsch_pending_events_process, NULL);
     /* only the coordinator creates EB, all others nodes forward them */
