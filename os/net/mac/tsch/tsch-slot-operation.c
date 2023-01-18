@@ -1077,10 +1077,6 @@ PT_THREAD(tsch_slot_operation(struct rtimer *t, void *ptr))
       TSCH_DEBUG_SLOT_START();
       tsch_in_slot_operation = 1;
 
-      if (tsch_current_asn.ls4b > TSCH_STOP_SEARCH_AT_ASN) {
-        tsch_disable_search();
-      }
-
       /* Measure on-air noise level while TSCH is idle */
       tsch_stats_sample_rssi();
       /* Reset drift correction */

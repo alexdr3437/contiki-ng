@@ -326,7 +326,7 @@ tsch_packet_create_eb(uint8_t *hdr_len, uint8_t *tsch_sync_ie_offset)
   packetbuf_set_datalen(packetbuf_datalen() + ie_len);
 #endif
 
-  ies.hops_to_root = node_id == ROOT_ID ? 0 : (sqnet_routing_get_best_hops() + 1);
+  ies.hops_to_root = node_id == ROOT_ID ? 0 : (sqnet_routing_get_min_hops() + 1);
   ie_len = frame802154_create_ie_network_routing(p,
                                                  packetbuf_remaininglen(),
                                                  &ies);

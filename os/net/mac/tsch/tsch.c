@@ -129,8 +129,6 @@ int tsch_is_associated = 0;
 int tsch_association_count = 0;
 /* Is the PAN running link-layer security? */
 int tsch_is_pan_secured = LLSEC802154_ENABLED;
-/* Is node search ongoing? */
-int tsch_is_searching = 1;
 /* The current Absolute Slot Number (ASN) */
 struct tsch_asn_t tsch_current_asn;
 /* Device rank or join priority:
@@ -183,12 +181,6 @@ tsch_set_coordinator(int enable)
   tsch_is_coordinator = enable;
   tsch_set_eb_period(TSCH_EB_PERIOD);
   tsch_roots_set_self_to_root(tsch_is_coordinator ? 1 : 0);
-}
-/*---------------------------------------------------------------------------*/
-void
-tsch_disable_search()
-{
-    tsch_is_searching = false;
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -574,6 +566,7 @@ tsch_rx_process_pending()
       /* Pass to upper layers */
       packet_input();
     } else if(is_eb) {
+      LOG_DBG("RECEIVE EB\n");
       eb_input(current_input);
       tsch_send_eb();
     }
@@ -798,8 +791,7 @@ tsch_associate(const struct input_packet *input_eb, rtimer_clock_t timestamp)
 
       /* add new slot to the schedule based on number of hops from the root */
       LOG_DBG("TSCH: EB from node w/ hops_to_root = %d\n", ies.hops_to_root);
-      scheduler_init();
-      scheduler_add_link(ies.hops_to_root, frame.src_addr[0]); 
+      scheduler_start();
 
       /* schedule EB forwarding */
         uint8_t hdr_len = 0;
@@ -948,7 +940,6 @@ PROCESS_THREAD(tsch_process, ev, data)
     while(!tsch_is_associated) {
       if(tsch_is_coordinator) {
         /* We are coordinator, start operating now */
-        scheduler_init();
         tsch_start_coordinator();
         /* send initial EB */
         tsch_send_eb();
@@ -988,27 +979,21 @@ PROCESS_THREAD(tsch_send_eb_process, ev, data)
 
     LOG_DBG("trying to enqueue EB %d\n", tsch_is_coordinator);
 
-
-    /* send a beacon if we are in search mode */
-    if (tsch_is_searching) {
-        tsch_send_eb();
-    } else if (scheduler_doing_search()) {
-        scheduler_stop_search();
-    }
-
-    /* send another if we are the coordinator so that the beacons propagate through the network*/
-    if (tsch_is_coordinator) {
-        tsch_send_eb();
-    }
-
-    if (!tsch_is_coordinator && !tsch_is_searching) {
-        exit = true;
-    } else {
-        delay = 1000 + 
-            + random_rand() % 5000; // betweenn 1 s and 5 s 
-
+    /* send a beacon if we are in search mode or if we are the coordinator */
+    if (scheduler_in_search() || (tsch_is_coordinator && scheduler_in_idle())) {
+        tsch_send_eb(); 
+        LOG_DBG("EB enqueued");
+        // wait for between 1 s and 5 s 
+        delay = 1 * CLOCK_SECOND + random_rand() % (5 * CLOCK_SECOND); 
         etimer_set(&eb_timer, delay);
         PROCESS_WAIT_UNTIL(etimer_expired(&eb_timer));
+    } else if (tsch_is_coordinator && scheduler_in_config()) {
+        delay = SCHEDULE_CONFIG_DURATION_S * CLOCK_SECOND; 
+        etimer_set(&eb_timer, delay);
+        PROCESS_WAIT_UNTIL(etimer_expired(&eb_timer));
+    } else if (!tsch_is_coordinator) {
+        exit = true;
+        LOG_DBG("EXITING\n");
     }
   }
   PROCESS_END();

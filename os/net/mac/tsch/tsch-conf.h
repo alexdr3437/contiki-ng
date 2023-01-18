@@ -152,13 +152,6 @@
 #define TSCH_DEFAULT_SCAN_CHANNEL 20
 #endif
 
-/* Default hopping sequence, used in case hopping sequence ID == 0 */
-#ifdef TSCH_CONF_STOP_SEARCH_AT_ASN
-#define TSCH_STOP_SEARCH_AT_ASN TSCH_CONF_STOP_SEARCH_AT_ASN
-#else
-#define TSCH_STOP_SEARCH_AT_ASN 3000
-#endif
-
 /* Hopping sequence used for joining (scan channels) */
 #ifdef TSCH_CONF_JOIN_HOPPING_SEQUENCE
 #define TSCH_JOIN_HOPPING_SEQUENCE TSCH_CONF_JOIN_HOPPING_SEQUENCE
