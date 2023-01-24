@@ -987,18 +987,19 @@ PROCESS_THREAD(tsch_send_eb_process, ev, data)
     LOG_DBG("trying to enqueue EB %d\n", tsch_is_coordinator);
 
     /* send a beacon if we are in search mode or if we are the coordinator */
-    if (scheduler_in_search() || (tsch_is_coordinator && scheduler_in_idle())) {
+    if (scheduler_in_search()) {
         tsch_send_eb(); 
         LOG_DBG("EB enqueued");
         // wait for between 1 s and 5 s 
         delay = 1 * CLOCK_SECOND + random_rand() % (5 * CLOCK_SECOND); 
         etimer_set(&eb_timer, delay);
         PROCESS_WAIT_UNTIL(etimer_expired(&eb_timer));
-    } else if (tsch_is_coordinator && scheduler_in_config()) {
+    } else if (tsch_is_coordinator) {
         tsch_send_eb();
+        delay = 10 * CLOCK_SECOND;
         etimer_set(&eb_timer, delay);
         PROCESS_WAIT_UNTIL(etimer_expired(&eb_timer));
-    } else if (!tsch_is_coordinator) {
+    } else { // !tsch_is_coordinator
         exit = true;
         LOG_DBG("EXITING\n");
     }

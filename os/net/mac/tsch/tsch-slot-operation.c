@@ -630,7 +630,7 @@ PT_THREAD(tsch_tx_slot(struct pt *pt, struct rtimer *t))
       packet = queuebuf_dataptr(current_packet->qb);
       packet_len = queuebuf_datalen(current_packet->qb);
       /* if is this a broadcast packet, don't wait for ack */
-      do_wait_for_ack = 0; //!current_neighbor->is_broadcast;
+      do_wait_for_ack = !current_neighbor->is_broadcast;
       /* Unicast. More packets in queue for the neighbor? */
       burst_link_requested = 0;
       if(do_wait_for_ack
