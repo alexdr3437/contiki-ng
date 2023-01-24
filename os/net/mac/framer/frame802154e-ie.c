@@ -76,6 +76,7 @@ enum ieee802154e_mlme_short_subie_id {
   MLME_SHORT_IE_TSCH_MAC_METRICS_1,
   MLME_SHORT_IE_TSCH_MAC_METRICS_2,
   MLME_SHORT_IE_TSCH_NETWORK_INFO,
+  MLME_SHORT_IE_TSCH_STATUS_REQUEST,
 };
 
 /* c.f. IEEE 802.15.4e Table 4e */
@@ -347,10 +348,22 @@ frame802154_create_ie_network_routing(uint8_t *buf, int len, struct ieee802154_i
   if (ies == NULL) {
     return -1;
   }
-  ie_len = 2;
+  ie_len = 1;
   buf[2] = ies->hops_to_root;
-  buf[3] = ies->free_slot;
   create_mlme_short_ie_descriptor(buf, MLME_SHORT_IE_TSCH_NETWORK_INFO, ie_len);
+  return 2 + ie_len;
+}
+
+int 
+frame802154_create_ie_request_status(uint8_t *buf, int len, struct ieee802154_ies *ies) {
+    printf("adding status request to EB\n");
+  int ie_len;
+  if (ies == NULL) {
+    return -1;
+  }
+  ie_len = 1;
+  buf[2] = true;
+  create_mlme_short_ie_descriptor(buf, MLME_SHORT_IE_TSCH_STATUS_REQUEST, ie_len);
   return 2 + ie_len;
 }
 
@@ -449,9 +462,13 @@ frame802154e_parse_mlme_short_ie(const uint8_t *buf, int len,
       }
       break;
     case MLME_SHORT_IE_TSCH_NETWORK_INFO:
-      if(len == 2) {
+      if(len == 1) {
         ies->hops_to_root = buf[0];
-        ies->free_slot = buf[1];
+      }
+      return len;
+    case MLME_SHORT_IE_TSCH_STATUS_REQUEST:
+      if(len == 1) {
+        ies->request_status = buf[0];
       }
       return len;
   }

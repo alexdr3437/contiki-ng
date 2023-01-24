@@ -62,7 +62,7 @@
 #include <inttypes.h>
 
 #include "network/scheduler.h"
-#include "network/sqnet_routing.h"
+#include "network/sqnet.h"
 
 #if TSCH_WITH_SIXTOP
 #include "net/mac/tsch/sixtop/sixtop.h"
@@ -566,9 +566,16 @@ tsch_rx_process_pending()
       /* Pass to upper layers */
       packet_input();
     } else if(is_eb) {
-      LOG_DBG("RECEIVE EB\n");
       eb_input(current_input);
-      tsch_send_eb();
+
+      if (packetbuf_attr(PACKETBUF_ATTR_REQUEST_STATUS)) {
+        printf("status received!\n");
+        sqnet_status_set_request_status();
+      }
+
+      if (!sqnet_routing_is_leaf()) {
+        tsch_send_eb();
+      }
     }
 
     /* Remove input from ringbuf */
@@ -988,7 +995,7 @@ PROCESS_THREAD(tsch_send_eb_process, ev, data)
         etimer_set(&eb_timer, delay);
         PROCESS_WAIT_UNTIL(etimer_expired(&eb_timer));
     } else if (tsch_is_coordinator && scheduler_in_config()) {
-        delay = SCHEDULE_CONFIG_DURATION_S * CLOCK_SECOND; 
+        tsch_send_eb();
         etimer_set(&eb_timer, delay);
         PROCESS_WAIT_UNTIL(etimer_expired(&eb_timer));
     } else if (!tsch_is_coordinator) {

@@ -53,12 +53,17 @@ uint16_t node_id = 0;
 void node_id_init(void)
 {
 #if BUILD_WITH_DEPLOYMENT
-    LOG_INFO("deploy!\n");
     deployment_init();
 #else  /* BUILD_WITH_DEPLOYMENT */
-    LOG_INFO("link addr = ");
-    LOG_INFO_LLADDR(&linkaddr_node_addr);
-    LOG_INFO_("\n");
-    node_id = linkaddr_node_addr.u8[0];
+    #ifndef NODE_ID // this will be defined when compiling for hardware (defined in makefile), undefined when compiling for cooja
+        LOG_INFO("link addr = ");
+        LOG_INFO_LLADDR(&linkaddr_node_addr);
+        LOG_INFO_("\n");
+        node_id = linkaddr_node_addr.u8[0];
+    #else
+        linkaddr_node_addr.u8[0] = NODE_ID;
+        linkaddr_node_addr.u8[1] = 0x00;
+        node_id = NODE_ID;
+    #endif
 #endif /* BUILD_WITH_DEPLOYMENT */
 }

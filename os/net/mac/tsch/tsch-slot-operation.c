@@ -179,6 +179,61 @@ static struct pt slot_operation_pt;
 static PT_THREAD(tsch_tx_slot(struct pt *pt, struct rtimer *t));
 static PT_THREAD(tsch_rx_slot(struct pt *pt, struct rtimer *t));
 
+
+/*---------------------------------------------------------------------------*/
+/* TSCH asn callback system. Allows registering callbacks that trigger at or after 
+   specific asns */
+
+
+
+typedef void (*tsch_asn_callback_t)(void);
+
+typedef struct {
+    struct tsch_asn_t asn;
+    tsch_asn_callback_t callback;
+} tsch_asn_callback_schedule_t;
+static tsch_asn_callback_schedule_t callbacks[TSCH_MAX_ACTIVE_CALLBACKS];
+
+// returns a negative number if asn2 > asn1, positive if asn1 > asn2 and
+// zero if they are equal.
+int
+tsch_asn_cmp(struct tsch_asn_t asn1, struct tsch_asn_t asn2) {
+    if (asn1.ms1b != asn2.ms1b) {
+        return asn1.ms1b - asn2.ms1b;
+    } else {
+        return asn1.ls4b - asn2.ls4b;
+    }
+}
+
+int
+tsch_register_asn_callback(struct tsch_asn_t asn, tsch_asn_callback_t callback) {
+    if (tsch_asn_cmp(asn, tsch_current_asn) <= 0) {
+        // asn has already passed
+        return -1;
+    }
+
+    for (int i = 0; i < TSCH_MAX_ACTIVE_CALLBACKS; i++) {
+        if (callbacks[i].callback == NULL) {
+            callbacks[i].asn = asn;
+            callbacks[i].callback = callback;
+            return 0;
+        }
+    }
+    // no free slots
+    return -1;
+}
+
+static void
+tsch_asn_check_for_callbacks(void) {
+    for (int i = 0; i < TSCH_MAX_ACTIVE_CALLBACKS; i++) {
+        if (callbacks[i].callback != NULL && tsch_asn_cmp(callbacks[i].asn, tsch_current_asn) <= 0) {
+            callbacks[i].callback();
+            callbacks[i].callback = NULL;
+        }
+    }
+}
+
+
 /*---------------------------------------------------------------------------*/
 /* TSCH locking system. TSCH is locked during slot operations */
 
@@ -1060,6 +1115,8 @@ PT_THREAD(tsch_slot_operation(struct rtimer *t, void *ptr))
 
   /* Loop over all active slots */
   while(tsch_is_associated) {
+
+    tsch_asn_check_for_callbacks();
 
     if(current_link == NULL || tsch_lock_requested) { /* Skip slot operation if there is no link
                                                           or if there is a pending request for getting the lock */

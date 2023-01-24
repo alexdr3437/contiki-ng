@@ -247,6 +247,7 @@ enum {
 
   PACKETBUF_ATTR_HOPS_TO_ROOT,
   PACKETBUF_ATTR_FREE_SLOT,
+  PACKETBUF_ATTR_REQUEST_STATUS,
 
   /* Scope 2 attributes: used between end-to-end nodes. */
   /* These must be last */

@@ -485,5 +485,12 @@ by default, useful in case of duplicate seqno */
 #endif
 
 
+/* Time before we start using drift to determine how often to wake up and sync (begins after TSCH_SEARCH_DURATION_S) */
+#ifdef TSCH_CONF_MAX_ACTIVE_CALLBACKS
+#define TSCH_MAX_ACTIVE_CALLBACKS TSCH_CONF_MAX_ACTIVE_CALLBACKS
+#else
+#define TSCH_MAX_ACTIVE_CALLBACKS 3
+#endif
+
 #endif /* TSCH_CONF_H_ */
 /** @} */

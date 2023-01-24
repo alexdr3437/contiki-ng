@@ -55,7 +55,7 @@
 #include "sys/node-id.h"
 
 #include "network/scheduler.h"
-#include "network/sqnet_routing.h"
+#include "network/sqnet.h"
 
 /* Log configuration */
 #include "sys/log.h"
@@ -330,11 +330,23 @@ tsch_packet_create_eb(uint8_t *hdr_len, uint8_t *tsch_sync_ie_offset)
   ie_len = frame802154_create_ie_network_routing(p,
                                                  packetbuf_remaininglen(),
                                                  &ies);
+
   if (ie_len < 0) {
     return -1;
   }
   p += ie_len;
   packetbuf_set_datalen(packetbuf_datalen() + ie_len);
+
+  ies.request_status = sqnet_status_get_and_clear_request_status();
+  if (ies.request_status) {
+    ie_len = frame802154_create_ie_request_status(p, packetbuf_remaininglen(), &ies);  
+    if (ie_len < 0) {
+        return -1;
+    }
+    p += ie_len;
+    packetbuf_set_datalen(packetbuf_datalen() + ie_len);
+  }
+
 
   ies.ie_mlme_len = packetbuf_datalen();
 
@@ -460,7 +472,7 @@ tsch_packet_parse_eb(const uint8_t *buf, int buf_size,
 
   packetbuf_set_addr(PACKETBUF_ADDR_SENDER, (const linkaddr_t *)frame->src_addr);
   packetbuf_set_attr(PACKETBUF_ATTR_HOPS_TO_ROOT, ies->hops_to_root);
-  packetbuf_set_attr(PACKETBUF_ATTR_FREE_SLOT, ies->free_slot);
+  packetbuf_set_attr(PACKETBUF_ATTR_REQUEST_STATUS, ies->request_status);
   sqnet_update_routing_table();
 
   if(hdr_len != NULL) {

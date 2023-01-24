@@ -8,6 +8,8 @@
         "tsch.h": "c",
         "node-id.h": "c",
         "packetbuf.h": "c",
-        "queuebuf.h": "c"
+        "queuebuf.h": "c",
+        "contiki.h": "c",
+        "contiki-conf.h": "c"
     }
 }
